@@ -19,39 +19,7 @@ public class MechanumDriveBase extends LinearOpMode {
     //BNO055IMU imu;
     @Override
     public void runOpMode() {
-        //Init
-        /*imu = hardwareMap.get(BNO055IMU.class,"nativeIMU");
-        //Internal Measurment Unit Parameters
-        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
-        parameters.mode = BNO055IMU.SensorMode.IMU;
-        parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
-        parameters.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
-        parameters.loggingEnabled = false;
-        //End Internal Measurment Unit Parameters
 
-        imu.initialize(parameters);
-        telemetry.addData("imuStatus", "initializing");
-        telemetry.update();
-        int animate = 0;
-        String dots = ".";
-        while(!isStopRequested() && !imu.isGyroCalibrated()){
-            if(animate%10==0){
-                if(animate%30==0){
-                    dots = ".";
-                }else {
-                    dots = dots + ".";
-                }
-            }
-            //telemetry.addData("imuStatus",imu.getCalibrationStatus().toString());
-            telemetry.addData("imuStatus", "calibrating"+dots);
-            telemetry.update();
-            sleep(50);
-            idle();
-            animate++;
-        }
-        telemetry.addData("imuStatus",imu.getCalibrationStatus().toString());
-        telemetry.update();
-        */
         flmot = hardwareMap.dcMotor.get("mot0");
         blmot = hardwareMap.dcMotor.get("mot1");
         brmot = hardwareMap.dcMotor.get("mot2");
@@ -78,7 +46,7 @@ public class MechanumDriveBase extends LinearOpMode {
         while (opModeIsActive()) {
             //Loop
             double[] pows = mechanumPower(-gamepad1.left_stick_y,gamepad1.left_stick_x,gamepad1.right_stick_x);
-            //String rotInfo = String.format("x:%f, y:%f, z:%f",imu.getAngularVelocity().xRotationRate,imu.getAngularVelocity().yRotationRate,imu.getAngularVelocity().zRotationRate);
+
             flmot.setPower(pows[0]);
             blmot.setPower(pows[1]);
             brmot.setPower(pows[2]);
@@ -88,8 +56,7 @@ public class MechanumDriveBase extends LinearOpMode {
             telemetry.addData("BL",pows[1]);
             telemetry.addData("BR",pows[2]);
             telemetry.addData("FR",pows[3]);
-            //telemetry.addData("imuStatus",rotInfo);
-            //telemetry.update();
+
         }
     }
 

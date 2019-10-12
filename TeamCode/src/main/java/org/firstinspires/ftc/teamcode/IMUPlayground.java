@@ -10,6 +10,9 @@ public class IMUPlayground extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        telemetry.addData("imuStatus", "pre-initializing");
+        telemetry.update();
+
         imu = hardwareMap.get(BNO055IMU.class, "nativeIMU");
         //Internal Measurment Unit Parameters
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
@@ -20,7 +23,9 @@ public class IMUPlayground extends LinearOpMode {
         //End Internal Measurment Unit Parameters
 
         imu.initialize(parameters);
+
         telemetry.addData("imuStatus", "initializing");
+
         telemetry.update();
         int animate = 0;
         String dots = ".";
@@ -42,6 +47,7 @@ public class IMUPlayground extends LinearOpMode {
         telemetry.addData("imuStatus", imu.getCalibrationStatus().toString());
         telemetry.update();
         waitForStart();
+
         while (opModeIsActive()) {
             //Loop
             String rotInfo = String.format("x:%f, y:%f, z:%f", imu.getAngularVelocity().xRotationRate, imu.getAngularVelocity().yRotationRate, imu.getAngularVelocity().zRotationRate);
