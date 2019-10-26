@@ -6,9 +6,13 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+import org.firstinspires.ftc.robotcore.external.android.AndroidAccelerometer;
+import org.firstinspires.ftc.robotcore.external.android.AndroidGyroscope;
+import org.firstinspires.ftc.robotcore.external.android.AndroidOrientation;
 
-@TeleOp(name="Mechanum Drive Base", group="Test")
-public class MechanumDriveBase extends LinearOpMode {
+
+@TeleOp(name="OpenHouse", group="?")
+public class OpenHouseDemo extends LinearOpMode {
     final double sumSineCosineWheelHypo = 2.0/Math.sqrt(2.0); //Sum of the sine and cosine of the triangle formed by the distance of the wheel to the center of the robot
 
     DcMotor flmot;
@@ -19,7 +23,9 @@ public class MechanumDriveBase extends LinearOpMode {
     //BNO055IMU imu;
     @Override
     public void runOpMode() {
-
+        AndroidOrientation aO = new AndroidOrientation();
+        AndroidGyroscope aG = new AndroidGyroscope();
+        AndroidAccelerometer aA = new AndroidAccelerometer();
         flmot = hardwareMap.dcMotor.get("mot0");
         blmot = hardwareMap.dcMotor.get("mot1");
         brmot = hardwareMap.dcMotor.get("mot2");
@@ -40,11 +46,30 @@ public class MechanumDriveBase extends LinearOpMode {
         blmot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         brmot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        if(aO.isAvailable()){
+            telemetry.addData("Orientation", "ONLINE");
+        }else{
+            telemetry.addData("Orientation", "OFFLINE");
+        }
+
+        if(aG.isAvailable()){
+            telemetry.addData("Gyroscope", "ONLINE");
+        }else{
+            telemetry.addData("Gyroscope", "OFFLINE");
+        }
+
+        if(aA.isAvailable()){
+            telemetry.addData("Accelerometre", "ONLINE");
+        }else{
+            telemetry.addData("Accelerometre", "OFFLINE");
+        }
         waitForStart();
         //OnStart
 
         while (opModeIsActive()) {
-            //Loop-
+            //Loop
+
+
             double[] pows = mechanumPower(-gamepad1.left_stick_y,gamepad1.left_stick_x,gamepad1.right_stick_x);
 
             flmot.setPower(pows[0]);

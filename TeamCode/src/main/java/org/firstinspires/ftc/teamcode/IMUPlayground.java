@@ -19,7 +19,7 @@ public class IMUPlayground extends LinearOpMode {
         parameters.mode = BNO055IMU.SensorMode.IMU;
         parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
         parameters.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
-        parameters.loggingEnabled = false;
+        parameters.loggingEnabled = true;
         //End Internal Measurment Unit Parameters
 
         imu.initialize(parameters);
@@ -29,7 +29,7 @@ public class IMUPlayground extends LinearOpMode {
         telemetry.update();
         int animate = 0;
         String dots = ".";
-        while (!isStopRequested() && !imu.isGyroCalibrated()) {
+        while (!isStopRequested() && !(imu.isGyroCalibrated() && imu.isAccelerometerCalibrated())) {
             if (animate % 10 == 0) {
                 if (animate % 30 == 0) {
                     dots = ".";
@@ -38,20 +38,25 @@ public class IMUPlayground extends LinearOpMode {
                 }
             }
             //telemetry.addData("imuStatus",imu.getCalibrationStatus().toString());
-            telemetry.addData("imuStatus", "calibrating" + dots);
+            telemetry.addData("imuStatus", imu.getCalibrationStatus().toString() + " ["+dots+"] ");
             telemetry.update();
             sleep(50);
             idle();
             animate++;
         }
-        telemetry.addData("imuStatus", imu.getCalibrationStatus().toString());
+        telemetry.addData("imuStatus", imu.getCalibrationStatus().toString() + " [READY] ");
         telemetry.update();
         waitForStart();
 
         while (opModeIsActive()) {
             //Loop
-            String rotInfo = String.format("x:%f, y:%f, z:%f", imu.getAngularVelocity().xRotationRate, imu.getAngularVelocity().yRotationRate, imu.getAngularVelocity().zRotationRate);
-            telemetry.addData("imuStatus", rotInfo);
+            telemetry.addData("imuStatus", imu.getCalibrationStatus().toString() + " STA: " + imu.getSystemStatus().toShortString() + " [WORKING] ");
+            String rotInfo = String.format("x:%f, y:%f, z:%f", imu.getAngularOrientation().firstAngle, imu.getAngularOrientation().secondAngle, imu.getAngularOrientation().thirdAngle);
+            telemetry.addData("rotInfo", rotInfo);
+
+            String posInfo = String.format("x:%f, y:%f, z:%f", imu.getLinearAcceleration().xAccel, imu.getLinearAcceleration().yAccel, imu.getLinearAcceleration().zAccel);
+            telemetry.addData("accInfo", posInfo);
+
             telemetry.update();
         }
     }

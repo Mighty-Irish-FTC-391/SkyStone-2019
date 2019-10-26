@@ -1,61 +1,94 @@
-
 package org.firstinspires.ftc.teamcode;
+
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+@TeleOp(name = "Halloween Comp", group = "Competition")
+public class HalloweenBash extends LinearOpMode {
 
-@TeleOp(name="Mechanum Drive Base", group="Test")
-public class MechanumDriveBase extends LinearOpMode {
     final double sumSineCosineWheelHypo = 2.0/Math.sqrt(2.0); //Sum of the sine and cosine of the triangle formed by the distance of the wheel to the center of the robot
+    final double armPowMult = 0.5;
+    final int rotSpeed = 1;
 
+    private int targetArmFront;
+    private int targetArmBack;
     DcMotor flmot;
     DcMotor blmot;
     DcMotor frmot;
     DcMotor brmot;
 
-    //BNO055IMU imu;
+    DcMotorEx armFront;
+    DcMotorEx armBack;
     @Override
     public void runOpMode() {
+        //INIT START
+        flmot = hardwareMap.dcMotor.get("flmot");
+        blmot = hardwareMap.dcMotor.get("blmot");
+        brmot = hardwareMap.dcMotor.get("brmot");
+        frmot = hardwareMap.dcMotor.get("frmot");
 
-        flmot = hardwareMap.dcMotor.get("mot0");
-        blmot = hardwareMap.dcMotor.get("mot1");
-        brmot = hardwareMap.dcMotor.get("mot2");
-        frmot = hardwareMap.dcMotor.get("mot3");
+        armFront = (DcMotorEx) hardwareMap.dcMotor.get("armFront");
+        armBack = (DcMotorEx) hardwareMap.dcMotor.get("armBack");
 
         flmot.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         frmot.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         blmot.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         brmot.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
+        armFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        armBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
         flmot.setDirection(DcMotorSimple.Direction.FORWARD);
         frmot.setDirection(DcMotorSimple.Direction.FORWARD);
         blmot.setDirection(DcMotorSimple.Direction.REVERSE);
         brmot.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        armFront.setDirection(DcMotorSimple.Direction.FORWARD);
+        armBack.setDirection(DcMotorSimple.Direction.FORWARD);
 
         flmot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         frmot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         blmot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         brmot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        waitForStart();
-        //OnStart
+        armFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        armBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        targetArmFront = armFront.getCurrentPosition();
+        targetArmBack = armBack.getCurrentPosition();
+        //END INIT
+        waitForStart();
+        //START START
+        //END START
         while (opModeIsActive()) {
-            //Loop-
+            if(gamepad1.a){
+                armFront.setPower(armPowMult);
+            }else if(gamepad1.b){
+                armFront.setPower(-armPowMult);
+            }else{
+                armFront.setPower(0);
+            }
+
+            if(gamepad1.x){
+                armBack.setPower(armPowMult);
+            }else if(gamepad1.y){
+                armBack.setPower(-armPowMult);
+            }else{
+                armBack.setPower(0);
+            }
+
+            armBack.setTargetPosition(targetArmBack);
+
             double[] pows = mechanumPower(-gamepad1.left_stick_y,gamepad1.left_stick_x,gamepad1.right_stick_x);
 
             flmot.setPower(pows[0]);
             blmot.setPower(pows[1]);
             brmot.setPower(pows[2]);
             frmot.setPower(pows[3]);
-
-            telemetry.addData("FL",pows[0]);
-            telemetry.addData("BL",pows[1]);
-            telemetry.addData("BR",pows[2]);
-            telemetry.addData("FR",pows[3]);
 
         }
     }

@@ -7,8 +7,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 
-@TeleOp(name="Mechanum Drive Base", group="Test")
-public class MechanumDriveBase extends LinearOpMode {
+@TeleOp(name="Omnidrive", group="Drive")
+public class Omnidrive extends LinearOpMode {
     final double sumSineCosineWheelHypo = 2.0/Math.sqrt(2.0); //Sum of the sine and cosine of the triangle formed by the distance of the wheel to the center of the robot
 
     DcMotor flmot;
@@ -44,8 +44,8 @@ public class MechanumDriveBase extends LinearOpMode {
         //OnStart
 
         while (opModeIsActive()) {
-            //Loop-
-            double[] pows = mechanumPower(-gamepad1.left_stick_y,gamepad1.left_stick_x,gamepad1.right_stick_x);
+            //Loop
+            double[] pows = mechanumPower(-gamepad1.left_stick_y,gamepad1.right_stick_x,-gamepad1.left_stick_x);
 
             flmot.setPower(pows[0]);
             blmot.setPower(pows[1]);
