@@ -1,21 +1,18 @@
 package org.firstinspires.ftc.teamcode;
 
-
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 
-@TeleOp(name = "Halloween Comp", group = "Competition")
-public class HalloweenBash extends LinearOpMode {
+@Autonomous(name="Poor L Auto")
+public class PoorAutoL extends LinearOpMode {
 
     final double sumSineCosineWheelHypo = 2.0/Math.sqrt(2.0); //Sum of the sine and cosine of the triangle formed by the distance of the wheel to the center of the robot
-    final double pitchPow = 0.4;
+    final double pitchPow = 0.2;
     final int rotSpeed = 1;
-    final double servoSpeed = 0.001;
+    final double servoSpeed = 0.01;
 
     private int targetArmFront;
     private int targetArmBack;
@@ -28,10 +25,10 @@ public class HalloweenBash extends LinearOpMode {
     DcMotor pitchM;
 
     Servo gripFront;
-    CRServo gripBack;
+    Servo gripBack;
+
     @Override
-    public void runOpMode() {
-        //INIT START
+    public void runOpMode(){
         //drive motors
         flmot = hardwareMap.dcMotor.get("flmot");
         blmot = hardwareMap.dcMotor.get("blmot");
@@ -57,55 +54,54 @@ public class HalloweenBash extends LinearOpMode {
         plateM = hardwareMap.dcMotor.get("plate");
         pitchM = hardwareMap.dcMotor.get("pitch");
         gripFront = hardwareMap.servo.get("gripFront");
-        gripBack = hardwareMap.crservo.get("gripBack");
+        gripBack = hardwareMap.servo.get("gripBack");
 
         plateM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         pitchM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         pitchM.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        //END INIT
+
         waitForStart();
-        //START START
-        //END START
-        while (opModeIsActive()) {
+        final double initTime = time;
+        while(opModeIsActive()){
+            if(time - initTime < 2.5){
+                double[] pows = mechanumPower(0.25,0,0); //workaround for now
 
-            if(gamepad1.a){
-                pitchM.setPower(pitchPow);
-            }else if(gamepad1.b){
-                pitchM.setPower(-pitchPow);
+
+                flmot.setPower(pows[0]);
+                blmot.setPower(pows[1]);
+                brmot.setPower(pows[2]);
+                frmot.setPower(pows[3]);
             }else{
-                pitchM.setPower(0);
+                flmot.setPower(0.0);
+                blmot.setPower(0.0);
+                brmot.setPower(0.0);
+                frmot.setPower(0.0);
             }
+            if(time - initTime > 2.5 && time - initTime < 5.0){
+                double[] pows = mechanumPower(0.25,0,0); //workaround for now
 
-            if(gamepad1.x){
-                gripFront.setPosition(gripFront.MIN_POSITION);
-            }else if(gamepad1.y){
-                gripFront.setPosition(gripFront.MAX_POSITION);
+
+                flmot.setPower(pows[0]);
+                blmot.setPower(pows[1]);
+                brmot.setPower(pows[2]);
+                frmot.setPower(pows[3]);
             }else{
+                flmot.setPower(0.0);
+                blmot.setPower(0.0);
+                brmot.setPower(0.0);
+                frmot.setPower(0.0);
             }
-
-            if(gamepad1.left_bumper){
-                    gripBack.setPower(1.0);
-            }else if(gamepad1.right_bumper){
-                gripBack.setPower(-1.0);
-            }else{
-                gripBack.setPower(0.0);
-            }
-
-            plateM.setPower((double)(gamepad1.right_trigger-gamepad1.left_trigger));
-
-            double[] pows = mechanumPower(-gamepad1.left_stick_y,gamepad1.left_stick_x,gamepad1.right_stick_x); //workaround for now
-
-            flmot.setPower(pows[0]);
-            blmot.setPower(pows[1]);
-            brmot.setPower(pows[2]);
-            frmot.setPower(pows[3]);
-            telemetry.addData("servos", gripFront.getPosition() + " frnt; ");
+            telemetry.addData("AutoActive", time - initTime < 5);
+            telemetry.addData("initTime", initTime);
+            telemetry.addData("curTime", time);
             telemetry.update();
         }
-    }
 
+
+
+    }
     public double[] mechanumPower(double x, double y, double rot) {
         //Starting from the front left (0), counterclockwise (1,2,3), ratios for motor powers in range of [-1,1]
 

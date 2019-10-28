@@ -3,8 +3,13 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.util.ReadWriteFile;
 
-@TeleOp(name = "IMUplaygroud", group = "Test")
+import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
+
+import java.io.File;
+
+@TeleOp(name = "IMUCalibrate", group = "Test")
 public class IMUPlayground extends LinearOpMode {
     BNO055IMU imu;
 
@@ -56,7 +61,17 @@ public class IMUPlayground extends LinearOpMode {
 
             String posInfo = String.format("x:%f, y:%f, z:%f", imu.getLinearAcceleration().xAccel, imu.getLinearAcceleration().yAccel, imu.getLinearAcceleration().zAccel);
             telemetry.addData("accInfo", posInfo);
-
+            if (gamepad1.start) {
+                BNO055IMU.CalibrationData calibrationData = imu.readCalibrationData();
+                String filename = "calibration.json";
+                File file = AppUtil.getInstance().getSettingsFile(filename);
+                ReadWriteFile.writeFile(file, calibrationData.serialize());
+                telemetry.log().add("Calibration data saved to '%s'", filename);
+                while (gamepad1.start) {
+                    telemetry.update();
+                    idle();
+                }
+            }
             telemetry.update();
         }
     }
