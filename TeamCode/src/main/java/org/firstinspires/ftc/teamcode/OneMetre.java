@@ -1,28 +1,47 @@
-
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.bosch.BNO055IMU;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
+import org.firstinspires.ftc.robotcore.external.navigation.MotionDetection;
+
+import java.util.Vector;
+
 @Disabled
-@TeleOp(name="Omnidrive", group="Drive")
-public class Omnidrive extends LinearOpMode {
+@Autonomous(name = "Autonomous", group = "test")
+public class OneMetre extends LinearOpMode {
     final double sumSineCosineWheelHypo = 2.0/Math.sqrt(2.0); //Sum of the sine and cosine of the triangle formed by the distance of the wheel to the center of the robot
+    Vector velocity = new Vector(3);
+    Vector position = new Vector(3);
 
     DcMotor flmot;
     DcMotor blmot;
     DcMotor frmot;
     DcMotor brmot;
 
-    //BNO055IMU imu;
+    BNO055IMU imu;
     @Override
     public void runOpMode() {
 
+        imu = hardwareMap.get(BNO055IMU.class, "nativeIMU");
+        //Internal Measurment Unit Parameters
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        parameters.mode = BNO055IMU.SensorMode.IMU;
+        parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
+        parameters.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
+        parameters.calibrationDataFile = "calibration.json";
+        //End Internal Measurment Unit Parameters
+
+        imu.initialize(parameters);
+
         flmot = hardwareMap.dcMotor.get("mot0");
         blmot = hardwareMap.dcMotor.get("mot1");
+
+        
         brmot = hardwareMap.dcMotor.get("mot2");
         frmot = hardwareMap.dcMotor.get("mot3");
 
@@ -48,6 +67,9 @@ public class Omnidrive extends LinearOpMode {
             //Loop
             double[] pows = mechanumPower(-gamepad1.left_stick_y,gamepad1.right_stick_x,-gamepad1.left_stick_x);
 
+            if(imu.getLinearAcceleration().acquisitionTime > 0){
+                //velocity =
+            }
             flmot.setPower(pows[0]);
             blmot.setPower(pows[1]);
             brmot.setPower(pows[2]);

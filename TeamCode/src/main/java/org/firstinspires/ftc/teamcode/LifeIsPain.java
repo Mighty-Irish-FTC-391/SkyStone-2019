@@ -11,6 +11,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 
+@Disabled
 @TeleOp(name = "arts and crafts", group = "Competition")
 public class LifeIsPain extends OpMode {
 
