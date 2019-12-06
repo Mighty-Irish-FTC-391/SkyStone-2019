@@ -46,7 +46,7 @@ public class MagnumDriveMulti extends LinearOpMode {
     public final double BACK_GRIP_MAX = 1.0; //farthest Back position for the Back Grip in semi-circles
     public final double FRONT_GRIP_MIN = 0.0; //farthest Forward position for the Front Grip in semi-circles
     public final double FRONT_GRIP_MAX = 1.0; //farthest Forward position for the Front Grip in semi-circles
-    public final double ARM_SPEED = 90.0;//both arm motor speed, in degrees per second
+    public final double ARM_POW = 0.5;//both arm motor speed, in degrees per second
 
     //motors for mechanum drive go counterclockwise from the bottom right. Should be marked on robot.
     DcMotorEx mech0;
@@ -125,7 +125,7 @@ public class MagnumDriveMulti extends LinearOpMode {
         backGrip.scaleRange(BACK_GRIP_MIN,BACK_GRIP_MAX);
         frontGrip.scaleRange(FRONT_GRIP_MIN,FRONT_GRIP_MAX);
         wrist.scaleRange(WRIST_GRIP_MIN,WRIST_GRIP_MAX);
-        backGrip.setPosition(0.6);
+        backGrip.setPosition(0.0);
         frontGrip.setPosition(1.0);
 
         while(opModeIsActive()){
@@ -134,7 +134,7 @@ public class MagnumDriveMulti extends LinearOpMode {
 
             //Set the speeds for mechanum wheels
             double[] coeffs = mechanumPower(
-                    -(1.0-DRIVER_RATIO)*gamepad1.left_stick_x + (gamepad2.dpad_up ? DRIVER_RATIO : (gamepad2.dpad_down ? -DRIVER_RATIO : 0.0)),
+                    -(1.0-DRIVER_RATIO)*gamepad1.left_stick_x + (gamepad2.dpad_up ? -DRIVER_RATIO : (gamepad2.dpad_down ? DRIVER_RATIO : 0.0)),
                     (1.0-DRIVER_RATIO)*gamepad1.left_stick_y + (gamepad2.dpad_right ? DRIVER_RATIO : (gamepad2.dpad_left ? -DRIVER_RATIO : 0.0)),
                     (1.0-DRIVER_RATIO)*gamepad1.right_stick_x + DRIVER_RATIO*(gamepad2.left_trigger - gamepad2.right_trigger));
             mech0.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[0], AngleUnit.DEGREES);
@@ -143,8 +143,8 @@ public class MagnumDriveMulti extends LinearOpMode {
             mech3.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[3], AngleUnit.DEGREES);
 
             //move arms
-            upperArm.setPower(gamepad2.left_stick_y);
-            lowerArm.setPower(gamepad2.right_stick_y);
+            upperArm.setPower(ARM_POW*gamepad2.left_stick_y);
+            lowerArm.setPower(ARM_POW*gamepad2.right_stick_y);
 
             //move slide
             slide.setPower(gamepad2.y ? -SLIDE_SPEED : (gamepad2.x ? SLIDE_SPEED : 0.0));
@@ -159,11 +159,11 @@ public class MagnumDriveMulti extends LinearOpMode {
             wrist.setPosition(targetWristPos);
 
             //move gripper
-            backGrip.setPosition(gamepad2.a && !a2_last ? (backGrip.getPosition() > 0.9 ? 0.6 : 1.0) : backGrip.getPosition());
-            frontGrip.setPosition(gamepad2.b && !b2_last ? (frontGrip.getPosition() > 0.9 ? 0.0 : 1.0) : frontGrip.getPosition());
+            backGrip.setPosition(gamepad2.a && !a2_last ? (backGrip.getPosition() > 0.99 ? 0.0 : 1.0) : backGrip.getPosition());
+            frontGrip.setPosition(gamepad2.b && !b2_last ? (frontGrip.getPosition() > 0.99 ? 0.0 : 1.0) : frontGrip.getPosition());
 
             //move flipper thingies
-            waffleLeft.setPosition(gamepad1.a && !a1_last ? (waffleLeft.getPosition() > 0.9 ? 0.0 : 1.0) : waffleLeft.getPosition());
+            waffleLeft.setPosition(gamepad1.a && !a1_last ? (waffleLeft.getPosition() > 0.99 ? 0.0 : 1.0) : waffleLeft.getPosition());
             waffleRight.setPosition(waffleLeft.getPosition());
 
             //update various stuffs
