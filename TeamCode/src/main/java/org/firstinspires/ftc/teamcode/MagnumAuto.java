@@ -15,11 +15,11 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public class MagnumAuto extends LinearOpMode {
 
     //CONSTANTS
-    public final int BRIDGE_BLUE = 0;//Change at comp
-    public final int BLUE_TOLERANCE = 50;//Adjust as needed
+    public final int BLUE_MIN = 35;//Change at comp
 
-    public final int BRIDGE_RED = 0;//Change at comp
-    public final int RED_TOLERANCE = 50;//Adjust as needed
+    public final int RED_MIN = 60;//Change at comp
+//9in
+    public final double WHEEL_RADIUS = 2.0;
 
     public final double MAX_SPEED_MECH_WHEEL = 360.0; //in degrees per second
     public final double[][] PIDF_MECH = null; //PIDF constants for the mechanum wheels
@@ -111,13 +111,14 @@ public class MagnumAuto extends LinearOpMode {
         frontGrip.setPosition(1.0);
 
         boolean stop = false;
+        double startTime = time;
         while(opModeIsActive()){
             if(!stop){
-                if(Math.abs(cs.blue() - BRIDGE_BLUE) >= BLUE_TOLERANCE || (Math.abs(cs.red() - BRIDGE_RED) >= RED_TOLERANCE)) { //keep moving until under bridge
-                    move(-1.0,0.0,0.0);
-                }else{
-                    move(0.0,0.0,0.0);
+                if(cs.blue() >= BLUE_MIN || cs.red() >= RED_MIN) { //keep moving until under bridge
+                    velocity(0.0,0.0,0.0);
                     stop = true;
+                }else{
+                    velocity(-1.0,0.0,0.0);
                 }
             }
             telemetry.addData("found bridge?", stop);
@@ -148,12 +149,21 @@ public class MagnumAuto extends LinearOpMode {
         return coeffs;
     }
 
-    public void move(double forward, double strafe, double rot){
+    public void velocity(double forward, double strafe, double rot){
         double[] coeffs = mechanumPower(strafe, forward, rot);
         mech0.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[0], AngleUnit.DEGREES);
         mech1.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[1], AngleUnit.DEGREES);
         mech2.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[2], AngleUnit.DEGREES);
         mech3.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[3], AngleUnit.DEGREES);
 
+    }
+
+    public void lineMove(double dist){
+        double startTime = time;
+        double dT = (dist/WHEEL_RADIUS) / MAX_SPEED_MECH_WHEEL;
+        double sign = Math.signum(dist);
+        while(opModeIsActive() && (startTime + dT) < time){
+            velocity(sign*1.0,0.0,0.0);
+        }
     }
 }
