@@ -36,7 +36,7 @@ public class MagnumDriveMulti extends LinearOpMode {
 
     //CONSTANTS
     public final double DRIVER_RATIO = 0.3; //ratio of the main driver's control over the wheels to the crane driver's control
-    public final double MAX_SPEED_MECH_WHEEL = 720.0; //in degrees per second
+    public final double MAX_SPEED_MECH_WHEEL = 1.0; //in degrees per second
     public final double[][] PIDF_MECH = null; //PIDF constants for the mechanum wheels
     public final double SLIDE_SPEED = 1.0; //slide servo speed, in ¯\_(ツ)_/¯
     public final double WRIST_SPEED = 3.5; //wrist rotation speed, in semi-circles per second
@@ -56,7 +56,8 @@ public class MagnumDriveMulti extends LinearOpMode {
 
     //Motors for the main arm
     DcMotorEx lowerArm;
-    DcMotorEx upperArm;
+    DcMotorEx rightArm;
+    DcMotorEx leftArm;
 
     //Servos for the main arm & pincer
     CRServo slide;
@@ -95,13 +96,12 @@ public class MagnumDriveMulti extends LinearOpMode {
 
         //Motors for the main arm. Use motors with encoders for DcMotorEx
         lowerArm = (DcMotorEx) hardwareMap.dcMotor.get("lowerArm");
-        upperArm = (DcMotorEx) hardwareMap.dcMotor.get("upperArm");
-
-        mech2.setDirection(DcMotorSimple.Direction.FORWARD);
-        mech3.setDirection(DcMotorSimple.Direction.FORWARD);
+        leftArm = (DcMotorEx) hardwareMap.dcMotor.get ("leftArm");
+        rightArm = (DcMotorEx) hardwareMap.dcMotor.get("rightArm");
 
         lowerArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        upperArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         //Servos for the main arm & pincer
         slide = hardwareMap.crservo.get("slide");
@@ -110,9 +110,11 @@ public class MagnumDriveMulti extends LinearOpMode {
         frontGrip = hardwareMap.servo.get("frontGrip");
 
         //Servos for grabbing the base plate
-        waffleLeft = hardwareMap.servo.get("waffleLeft");
-        waffleRight = hardwareMap.servo.get("waffleRight");
+        //waffleLeft = hardwareMap.servo.get("waffleLeft");
+        //waffleRight = hardwareMap.servo.get("waffleRight");
 
+        backGrip.scaleRange(0.5,1.0);
+        frontGrip.scaleRange(0.0,0.5);
         waitForStart();
 
         double preTime = getRuntime();
@@ -122,11 +124,6 @@ public class MagnumDriveMulti extends LinearOpMode {
         boolean a2_last = false;
         boolean b2_last = false;
 
-        backGrip.scaleRange(BACK_GRIP_MIN,BACK_GRIP_MAX);
-        frontGrip.scaleRange(FRONT_GRIP_MIN,FRONT_GRIP_MAX);
-        wrist.scaleRange(WRIST_GRIP_MIN,WRIST_GRIP_MAX);
-        backGrip.setPosition(0.0);
-        frontGrip.setPosition(1.0);
 
         while(opModeIsActive()){
             //get the time step
@@ -134,18 +131,18 @@ public class MagnumDriveMulti extends LinearOpMode {
 
             //Set the speeds for mechanum wheels
             double[] coeffs = mechanumPower(
-                    -(1.0-DRIVER_RATIO)*gamepad1.left_stick_x + (gamepad2.dpad_up ? -DRIVER_RATIO : (gamepad2.dpad_down ? DRIVER_RATIO : 0.0)),
-                    (1.0-DRIVER_RATIO)*gamepad1.left_stick_y + (gamepad2.dpad_right ? DRIVER_RATIO : (gamepad2.dpad_left ? -DRIVER_RATIO : 0.0)),
+                    (1.0-DRIVER_RATIO)*gamepad1.left_stick_x + (gamepad2.dpad_right ? -DRIVER_RATIO : (gamepad2.dpad_left ? DRIVER_RATIO : 0.0)),
+                    (1.0-DRIVER_RATIO)*-gamepad1.left_stick_y + (gamepad2.dpad_up ? DRIVER_RATIO : (gamepad2.dpad_down ? -DRIVER_RATIO : 0.0)),
                     (1.0-DRIVER_RATIO)*gamepad1.right_stick_x + DRIVER_RATIO*(gamepad2.left_trigger - gamepad2.right_trigger));
-            mech0.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[0], AngleUnit.DEGREES);
-            mech1.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[1], AngleUnit.DEGREES);
-            mech2.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[2], AngleUnit.DEGREES);
-            mech3.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[3], AngleUnit.DEGREES);
+            mech0.setPower(MAX_SPEED_MECH_WHEEL*coeffs[0]);
+            mech1.setPower(MAX_SPEED_MECH_WHEEL*coeffs[1]);
+            mech2.setPower(MAX_SPEED_MECH_WHEEL*coeffs[2]);
+            mech3.setPower(MAX_SPEED_MECH_WHEEL*coeffs[3]);
 
             //move arms
-            upperArm.setPower(ARM_POW*gamepad2.left_stick_y);
-            lowerArm.setPower(ARM_POW*gamepad2.right_stick_y);
-
+            lowerArm.setPower(ARM_POW*gamepad2.left_stick_y);
+            leftArm.setPower(ARM_POW*gamepad2.right_stick_y);
+            rightArm.setPower(-leftArm.getPower());
             //move slide
             slide.setPower(gamepad2.y ? -SLIDE_SPEED : (gamepad2.x ? SLIDE_SPEED : 0.0));
 
@@ -163,8 +160,8 @@ public class MagnumDriveMulti extends LinearOpMode {
             frontGrip.setPosition(gamepad2.b && !b2_last ? (frontGrip.getPosition() > 0.99 ? 0.0 : 1.0) : frontGrip.getPosition());
 
             //move flipper thingies
-            waffleLeft.setPosition(gamepad1.a && !a1_last ? (waffleLeft.getPosition() > 0.99 ? 0.0 : 1.0) : waffleLeft.getPosition());
-            waffleRight.setPosition(waffleLeft.getPosition());
+            //waffleLeft.setPosition(gamepad1.a && !a1_last ? (waffleLeft.getPosition() > 0.99 ? 0.0 : 1.0) : waffleLeft.getPosition());
+            //waffleRight.setPosition(waffleLeft.getPosition());
 
             //update various stuffs
             preTime = getRuntime();
@@ -176,9 +173,7 @@ public class MagnumDriveMulti extends LinearOpMode {
             telemetry.addData("Δt", dT);
             telemetry.addData("mech coeffs", String.format("%.2f, %.2f, %.2f, %.2f", coeffs[0], coeffs[1], coeffs[2], coeffs[3]));
             telemetry.addData("wheel speeds [0,1,2,3]", String.format("%.2f, %.2f, %.2f, %.2f", mech0.getVelocity(AngleUnit.DEGREES), mech1.getVelocity(AngleUnit.DEGREES), mech2.getVelocity(AngleUnit.DEGREES), mech3.getVelocity(AngleUnit.DEGREES)));
-            telemetry.addData("upArm PIDF", upperArm.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER).toString());
             telemetry.addData("lowArm PIDF", lowerArm.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER).toString());
-            //telemetry.addData("upArm Speed Error", upperArm.getVelocity(AngleUnit.DEGREES)+", "+targUpSpeed+", "+upperArm.getCurrentPosition());
             //telemetry.addData("lowArm Speed Error", lowerArm.getVelocity(AngleUnit.DEGREES)+", "+targDownSpeed+", "+lowerArm.getCurrentPosition());
             telemetry.addData("wristPos", targetWristPos);
             updateTelemetry(telemetry);
@@ -194,13 +189,13 @@ public class MagnumDriveMulti extends LinearOpMode {
         coeffs[2] = y + x + rot;
         coeffs[3] = y - x + rot;
 
-        /*double largest = Math.max(Math.max(Math.abs(coeffs[0]),Math.abs(coeffs[1])),Math.max(Math.abs(coeffs[2]),Math.abs(coeffs[3])));
+        double largest = Math.max(Math.max(Math.abs(coeffs[0]),Math.abs(coeffs[1])),Math.max(Math.abs(coeffs[2]),Math.abs(coeffs[3])));
         if(largest > 1.0d) {
             coeffs[0] = coeffs[0]/largest;
             coeffs[1] = coeffs[1]/largest;
             coeffs[2] = coeffs[2]/largest;
             coeffs[3] = coeffs[3]/largest;
-        }*/
+        }
         return coeffs;
     }
 }
