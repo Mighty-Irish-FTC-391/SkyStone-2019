@@ -1,8 +1,11 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.lynx.LynxI2cColorRangeSensor;
+import com.qualcomm.hardware.rev.RevColorSensorV3;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -10,43 +13,20 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
-
-/* CONTROLS:
-
-Player 1 [DRIVER]:
-    Left Stick: move + strafe
-    Right Stick x-axis: turn
-
-    A: toggle flippers
-
- Player 2 [OPERATOR]:
-    D-Pad: slowly move + strafe
-    (Lower) Triggers: slowly turn
-
-    Left Stick y-axis: rotate the upper arm beam
-    Right Stick y-axis: rotate the lower arm beam
-    Y/X: move slide out/in, respectively
-
-    (Upper) Shoulders: move wrist
-    A: toggle hind grip into/out of position
-    B: toggle front grip into/out of position
- */
-@TeleOp(name = "Magnum Drive Muti", group = "drive")
+@TeleOp(name = "Magnum Drive Muti", group = "*competition*")
 public class MagnumDriveMulti extends LinearOpMode {
 
     //CONSTANTS
     public final double DRIVER_RATIO = 0.3; //ratio of the main driver's control over the wheels to the crane driver's control
     public final double MAX_SPEED_MECH_WHEEL = 1.0; //in degrees per second
     public final double[][] PIDF_MECH = null; //PIDF constants for the mechanum wheels
-    public final double SLIDE_SPEED = 1.0; //slide servo speed, in ¯\_(ツ)_/¯
-    public final double WRIST_SPEED = 3.5; //wrist rotation speed, in semi-circles per second
-    public final double WRIST_GRIP_MIN = 0.0; ////farthest Back position for the Wrist in semi-circles
-    public final double WRIST_GRIP_MAX = 1.0; ////farthest Back position for the Wrist in semi-circles
-    public final double BACK_GRIP_MIN = 0.4; //farthest Back position for the Back Grip in semi-circles
-    public final double BACK_GRIP_MAX = 1.0; //farthest Back position for the Back Grip in semi-circles
-    public final double FRONT_GRIP_MIN = 0.0; //farthest Forward position for the Front Grip in semi-circles
-    public final double FRONT_GRIP_MAX = 1.0; //farthest Forward position for the Front Grip in semi-circles
-    public final double ARM_POW = 0.5;//both arm motor speed, in degrees per second
+    public final double[] PIDF_ARM = {20.0, 5.0, 5.0, 1.0}; //PIDF constants for the left/right arm motors
+    public final double SLIDE_MAX_POW = 0.5; //slide servo speed, in ¯\_(ツ)_/¯
+    public final double ARM_MAX_SPEED = 180.0;//both arm motor speed, in degrees per second
+    public final double ARM_SCAN_SPEED = 40.0;//taregt position speed maximum, in encoder ticks per cycle
+    //button history trackers
+    boolean a1_last = false;
+    boolean a2_last = false;
 
     //motors for mechanum drive go counterclockwise from the bottom right. Should be marked on robot.
     DcMotorEx mech0;
@@ -55,20 +35,20 @@ public class MagnumDriveMulti extends LinearOpMode {
     DcMotorEx mech3;
 
     //Motors for the main arm
-    DcMotorEx lowerArm;
+    DcMotorEx spoolArm;
     DcMotorEx rightArm;
     DcMotorEx leftArm;
 
     //Servos for the main arm & pincer
-    CRServo slide;
-    Servo wrist;
-    Servo backGrip;
-    Servo frontGrip;
+    DcMotorEx slide;
+    Servo claw;
 
     //Servos for grabbing the base plate
     Servo waffleLeft;
     Servo waffleRight;
 
+    //sensors
+    LynxI2cColorRangeSensor cs;
     @Override
     public void runOpMode(){
         //initialize motors for mechanum drive go counterclockwise from the bottom right. Use motors with encoders for DcMotorEx
@@ -95,88 +75,85 @@ public class MagnumDriveMulti extends LinearOpMode {
         }
 
         //Motors for the main arm. Use motors with encoders for DcMotorEx
-        lowerArm = (DcMotorEx) hardwareMap.dcMotor.get("lowerArm");
-        leftArm = (DcMotorEx) hardwareMap.dcMotor.get ("leftArm");
-        rightArm = (DcMotorEx) hardwareMap.dcMotor.get("rightArm");
+        spoolArm = (DcMotorEx) hardwareMap.dcMotor.get("spoolArm");
+        leftArm = (DcMotorEx) hardwareMap.dcMotor.get ("L_Arm");
+        rightArm = (DcMotorEx) hardwareMap.dcMotor.get("R_Arm");
 
-        lowerArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        spoolArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        rightArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        rightArm.setTargetPosition(0);
+        leftArm.setTargetPosition(0);
+
+        rightArm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        leftArm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        rightArm.setTargetPositionTolerance(10);
+        leftArm.setTargetPositionTolerance(10);
+
+        if(PIDF_ARM != null){
+            rightArm.setVelocityPIDFCoefficients(PIDF_ARM[0],PIDF_ARM[1],PIDF_ARM[2],PIDF_ARM[3]);
+            leftArm.setVelocityPIDFCoefficients(PIDF_ARM[0],PIDF_ARM[1],PIDF_ARM[2],PIDF_ARM[3]);
+            //rightArm.setPositionPIDFCoefficients();
+        }
+
         //Servos for the main arm & pincer
-        slide = hardwareMap.crservo.get("slide");
-        wrist = hardwareMap.servo.get("wrist");
-        backGrip = hardwareMap.servo.get("backGrip");
-        frontGrip = hardwareMap.servo.get("frontGrip");
-
+        slide = (DcMotorEx) hardwareMap.dcMotor.get("slide");
+        claw = hardwareMap.servo.get("claw");
         //Servos for grabbing the base plate
-        //waffleLeft = hardwareMap.servo.get("waffleLeft");
-        //waffleRight = hardwareMap.servo.get("waffleRight");
-
-        backGrip.scaleRange(0.5,1.0);
-        frontGrip.scaleRange(0.0,0.5);
-        waitForStart();
-
-        double preTime = getRuntime();
-        double targetWristPos = 1.0;
-
-        boolean a1_last = false;
-        boolean a2_last = false;
-        boolean b2_last = false;
+        waffleLeft = hardwareMap.servo.get("L_waffle");
+        waffleRight = hardwareMap.servo.get("R_waffle");
+        //sensors
+        cs = (LynxI2cColorRangeSensor) hardwareMap.colorSensor.get("colorSensor");
 
 
+        double tPos = 0.0;
+        while (!isStarted()){
+            doTelemetry(new String[]{""+tPos, "NULL"});
+        }
+
+        claw.setPosition(1.0);
+        rightArm.setPower(0.5);
+        leftArm.setPower(0.3);
+        waffleLeft.setPosition(0.9);
+        waffleRight.setPosition(0.5);
+        boolean isHold = false;
         while(opModeIsActive()){
             //get the time step
-            double dT = getRuntime() - preTime;
-
             //Set the speeds for mechanum wheels
             double[] coeffs = mechanumPower(
-                    (1.0-DRIVER_RATIO)*gamepad1.left_stick_x + (gamepad2.dpad_right ? -DRIVER_RATIO : (gamepad2.dpad_left ? DRIVER_RATIO : 0.0)),
-                    (1.0-DRIVER_RATIO)*-gamepad1.left_stick_y + (gamepad2.dpad_up ? DRIVER_RATIO : (gamepad2.dpad_down ? -DRIVER_RATIO : 0.0)),
-                    (1.0-DRIVER_RATIO)*gamepad1.right_stick_x + DRIVER_RATIO*(gamepad2.left_trigger - gamepad2.right_trigger));
+                    (1.0-DRIVER_RATIO)*gamepad1.left_stick_x + (gamepad2.dpad_right ? DRIVER_RATIO : (gamepad2.dpad_left ? -DRIVER_RATIO : 0.0)),
+                    -(1.0-DRIVER_RATIO)*gamepad1.left_stick_y + (gamepad2.dpad_up ? DRIVER_RATIO : (gamepad2.dpad_down ? -DRIVER_RATIO : 0.0)),
+                    -(1.0-DRIVER_RATIO)*gamepad1.right_stick_x + DRIVER_RATIO*(gamepad2.left_trigger - gamepad2.right_trigger));
             mech0.setPower(MAX_SPEED_MECH_WHEEL*coeffs[0]);
             mech1.setPower(MAX_SPEED_MECH_WHEEL*coeffs[1]);
             mech2.setPower(MAX_SPEED_MECH_WHEEL*coeffs[2]);
             mech3.setPower(MAX_SPEED_MECH_WHEEL*coeffs[3]);
 
             //move arms
-            lowerArm.setPower(ARM_POW*gamepad2.left_stick_y);
-            leftArm.setPower(ARM_POW*gamepad2.right_stick_y);
-            rightArm.setPower(-leftArm.getPower());
+            spoolArm.setPower(gamepad2.right_stick_y);
+            tPos += -gamepad2.left_stick_y*ARM_SCAN_SPEED;
+            int normTPos = (int) tPos;
+            leftArm.setTargetPosition(-normTPos);
+            rightArm.setTargetPosition(normTPos);
+
             //move slide
-            slide.setPower(gamepad2.y ? -SLIDE_SPEED : (gamepad2.x ? SLIDE_SPEED : 0.0));
+            slide.setPower(gamepad2.x ? SLIDE_MAX_POW : gamepad2.y ? -SLIDE_MAX_POW : 0.0);
 
-            //move wrist
-            if(gamepad2.right_bumper){
-                targetWristPos += WRIST_SPEED*dT;
-            }else if(gamepad2.left_bumper){
-                targetWristPos -= WRIST_SPEED*dT;
-            }
-            targetWristPos = targetWristPos < WRIST_GRIP_MIN ? WRIST_GRIP_MIN : targetWristPos > WRIST_GRIP_MAX ? WRIST_GRIP_MAX : targetWristPos; // put targetWristPos between min & max
-            wrist.setPosition(targetWristPos);
-
-            //move gripper
-            backGrip.setPosition(gamepad2.a && !a2_last ? (backGrip.getPosition() > 0.99 ? 0.0 : 1.0) : backGrip.getPosition());
-            frontGrip.setPosition(gamepad2.b && !b2_last ? (frontGrip.getPosition() > 0.99 ? 0.0 : 1.0) : frontGrip.getPosition());
-
+            //move claw
+            claw.setPosition(gamepad2.a  && !a2_last? (claw.getPosition() > 0.9 ? 0.0 : 1.0) : claw.getPosition());
             //move flipper thingies
-            //waffleLeft.setPosition(gamepad1.a && !a1_last ? (waffleLeft.getPosition() > 0.99 ? 0.0 : 1.0) : waffleLeft.getPosition());
-            //waffleRight.setPosition(waffleLeft.getPosition());
+            waffleLeft.setPosition(gamepad1.a && !a1_last ? (waffleLeft.getPosition() > 0.99 ? 0.3 : 1.0) : waffleLeft.getPosition());
+            waffleRight.setPosition(1.0-waffleLeft.getPosition());
 
-            //update various stuffs
-            preTime = getRuntime();
+            //update button history
             a1_last = gamepad1.a;
             a2_last = gamepad2.a;
-            b2_last = gamepad2.b;
 
-            //telemetry
-            telemetry.addData("Δt", dT);
-            telemetry.addData("mech coeffs", String.format("%.2f, %.2f, %.2f, %.2f", coeffs[0], coeffs[1], coeffs[2], coeffs[3]));
-            telemetry.addData("wheel speeds [0,1,2,3]", String.format("%.2f, %.2f, %.2f, %.2f", mech0.getVelocity(AngleUnit.DEGREES), mech1.getVelocity(AngleUnit.DEGREES), mech2.getVelocity(AngleUnit.DEGREES), mech3.getVelocity(AngleUnit.DEGREES)));
-            telemetry.addData("lowArm PIDF", lowerArm.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER).toString());
-            //telemetry.addData("lowArm Speed Error", lowerArm.getVelocity(AngleUnit.DEGREES)+", "+targDownSpeed+", "+lowerArm.getCurrentPosition());
-            telemetry.addData("wristPos", targetWristPos);
-            updateTelemetry(telemetry);
+            doTelemetry(new String[]{""+tPos, Boolean.toString(isHold)});
         }
     }
 
@@ -197,5 +174,53 @@ public class MagnumDriveMulti extends LinearOpMode {
             coeffs[3] = coeffs[3]/largest;
         }
         return coeffs;
+    }
+
+    public void doTelemetry(String[] args){
+        //PLEASE FIX. SOMEONE. ANYONE. I DONT CARE ANYMORE JUST PLEASE FIX THIS MESS
+        double r = cs.red();
+        double g = cs.green();
+        double b = cs.blue();
+        double a = cs.alpha();
+        double[] hsv = getHSV(r/a,g/a,b/a);
+        //telemetry.addData("Mech Powers",String.format("0: %.2f, 1: %.2f, 2: %.2f, 3: %.2f",mech0.getPower() ,mech1.getPower() ,mech2.getPower() ,mech3.getPower()));
+        telemetry.addData("Arm Velocities", String.format("L: %.2f, R: %.2f, Sp: %.2f", leftArm.getVelocity(AngleUnit.DEGREES), rightArm.getVelocity(AngleUnit.DEGREES), spoolArm.getVelocity(AngleUnit.DEGREES)));
+        telemetry.addData("Arm Powers", String.format("L: %f, R %f", leftArm.getPower(), rightArm.getPower() ));
+        telemetry.addData("Arm Pos", String.format("L: %d, R %d", leftArm.getCurrentPosition(), rightArm.getCurrentPosition() ));
+        telemetry.addData("Target Pos", String.format("L: %d, R %d", leftArm.getTargetPosition(), rightArm.getTargetPosition() ));
+        telemetry.addData("Ideal Position", args[0]);
+        telemetry.addData("Holding?", args[1]);
+        telemetry.addData("PIDF", leftArm.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER).toString());
+        telemetry.addData("time", time);
+        telemetry.addData("Colour", String.format("r: %f, g: %f, b, %f a, %f", r, g, b, a));
+        telemetry.addData("% Colour",  String.format("r: %f, g: %f, b, %f", r/a, g/a, b/a));
+        telemetry.addData("HSV", String.format("H: %.2f, S: %.2f, V: %.2f, ",hsv[0],hsv[1],hsv[2]));
+        telemetry.addData("Mech Vel", String.format("0: %.2f, 1: %.2f, 2: %.2f, 3: %.2f", mech0.getVelocity(AngleUnit.DEGREES), mech1.getVelocity(AngleUnit.DEGREES), mech2.getVelocity(AngleUnit.DEGREES), mech3.getVelocity(AngleUnit.DEGREES)));
+        updateTelemetry(telemetry);
+    }
+
+    public double[] getHSV(double r,double g, double b) {
+        double hue = 0;
+        double sat = 0;
+        double cMax = Math.max(Math.max(r,g),b);
+        double cMin = Math.min(Math.min(r,g),b);
+        if(r == g && g == b) {
+            hue = 0.0; //grayscale, hue doesn't matter
+        }else if(r > g && r > b){ //red greatest
+            hue = (((g-b)/(r - cMin)) % 6.0 + 6.0) % 6.0;
+        }else if(g > b){//green greatest
+            hue = ((b-r)/(g - cMin)) + 2;
+        }else{ //blue greatest
+            hue = ((r-g)/(b - cMin)) + 4;
+        }
+        hue = 60*hue;
+
+        if(cMax != 0) {
+            sat = (cMax-cMin)/cMax;
+        } else{
+            sat = 0;
+        }
+
+        return new double[]{hue, sat*100, cMax*100};
     }
 }

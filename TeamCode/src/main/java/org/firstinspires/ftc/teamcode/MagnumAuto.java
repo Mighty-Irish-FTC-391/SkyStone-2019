@@ -1,37 +1,37 @@
 package org.firstinspires.ftc.teamcode;
 
+import android.graphics.Color;
+
+import com.qualcomm.hardware.rev.RevColorSensorV3;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.I2cDevice;
+import com.qualcomm.robotcore.hardware.I2cDeviceReader;
+import com.qualcomm.robotcore.hardware.I2cDeviceSynch;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.configuration.I2cSensor;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
-@Autonomous(name="Magnum Auto")
+@Autonomous(name = "Magnum Autonomous", group = "*competition*")
 public class MagnumAuto extends LinearOpMode {
 
     //CONSTANTS
-    public final int BLUE_MIN = 35;//Change at comp
-
-    public final int RED_MIN = 60;//Change at comp
-//9in
-    public final double WHEEL_RADIUS = 2.0;
-
-    public final double MAX_SPEED_MECH_WHEEL = 360.0; //in degrees per second
+    public final double DRIVER_RATIO = 0.3; //ratio of the main driver's control over the wheels to the crane driver's control
+    public final double MAX_SPEED_MECH_WHEEL = 1.0; //in degrees per second
     public final double[][] PIDF_MECH = null; //PIDF constants for the mechanum wheels
-    public final double SLIDE_SPEED = 1.0; //slide servo speed, in ¯\_(ツ)_/¯
-    public final double WRIST_SPEED = 3.5; //wrist rotation speed, in semi-circles per second
-    public final double WRIST_GRIP_MIN = 0.0; ////farthest Back position for the Wrist in semi-circles
-    public final double WRIST_GRIP_MAX = 1.0; ////farthest Back position for the Wrist in semi-circles
-    public final double BACK_GRIP_MIN = 0.4; //farthest Back position for the Back Grip in semi-circles
-    public final double BACK_GRIP_MAX = 1.0; //farthest Back position for the Back Grip in semi-circles
-    public final double FRONT_GRIP_MIN = 0.0; //farthest Forward position for the Front Grip in semi-circles
-    public final double FRONT_GRIP_MAX = 1.0; //farthest Forward position for the Front Grip in semi-circles
+    public final double SLIDE_MAX_POW = 1.0; //slide servo speed, in ¯\_(ツ)_/¯
     public final double ARM_POW = 0.5;//both arm motor speed, in degrees per second
+
+    //button history trackers
+    boolean a1_last = false;
+    boolean a2_last = false;
 
     //motors for mechanum drive go counterclockwise from the bottom right. Should be marked on robot.
     DcMotorEx mech0;
@@ -40,21 +40,21 @@ public class MagnumAuto extends LinearOpMode {
     DcMotorEx mech3;
 
     //Motors for the main arm
-    DcMotorEx lowerArm;
-    DcMotorEx upperArm;
+    DcMotorEx spoolArm;
+    DcMotorEx rightArm;
+    DcMotorEx leftArm;
 
     //Servos for the main arm & pincer
-    CRServo slide;
-    Servo wrist;
-    Servo backGrip;
-    Servo frontGrip;
+    DcMotorEx slide;
+    Servo claw;
 
     //Servos for grabbing the base plate
     Servo waffleLeft;
     Servo waffleRight;
 
-    //Sensors
-    ColorSensor cs;
+    //ColorSensor cs;
+
+    @Override
     public void runOpMode(){
         //initialize motors for mechanum drive go counterclockwise from the bottom right. Use motors with encoders for DcMotorEx
         mech0 = (DcMotorEx) hardwareMap.dcMotor.get("mech0");
@@ -80,54 +80,45 @@ public class MagnumAuto extends LinearOpMode {
         }
 
         //Motors for the main arm. Use motors with encoders for DcMotorEx
-        lowerArm = (DcMotorEx) hardwareMap.dcMotor.get("lowerArm");
-        upperArm = (DcMotorEx) hardwareMap.dcMotor.get("upperArm");
+        spoolArm = (DcMotorEx) hardwareMap.dcMotor.get("spoolArm");
+        leftArm = (DcMotorEx) hardwareMap.dcMotor.get ("L_Arm");
+        rightArm = (DcMotorEx) hardwareMap.dcMotor.get("R_Arm");
 
-        mech2.setDirection(DcMotorSimple.Direction.FORWARD);
-        mech3.setDirection(DcMotorSimple.Direction.FORWARD);
-
-        lowerArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        upperArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        spoolArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         //Servos for the main arm & pincer
-        slide = hardwareMap.crservo.get("slide");
-        wrist = hardwareMap.servo.get("wrist");
-        backGrip = hardwareMap.servo.get("backGrip");
-        frontGrip = hardwareMap.servo.get("frontGrip");
-
+        slide = (DcMotorEx) hardwareMap.dcMotor.get("slide");
+        claw = hardwareMap.servo.get("claw");
         //Servos for grabbing the base plate
-        waffleLeft = hardwareMap.servo.get("waffleLeft");
-        waffleRight = hardwareMap.servo.get("waffleRight");
+        waffleLeft = hardwareMap.servo.get("L_waffle");
+        waffleRight = hardwareMap.servo.get("R_waffle");
 
-        //Sensors
-        cs = hardwareMap.colorSensor.get("color");
-
+        //sensors
+       // cs = hardwareMap.colorSensor.get("colorSensor");
         waitForStart();
 
-        backGrip.scaleRange(BACK_GRIP_MIN,BACK_GRIP_MAX);
-        frontGrip.scaleRange(FRONT_GRIP_MIN,FRONT_GRIP_MAX);
-        wrist.scaleRange(WRIST_GRIP_MIN,WRIST_GRIP_MAX);
-        backGrip.setPosition(0.0);
-        frontGrip.setPosition(1.0);
-
-        boolean stop = false;
-        double startTime = time;
         while(opModeIsActive()){
-            if(!stop){
-                if(cs.blue() >= BLUE_MIN || cs.red() >= RED_MIN) { //keep moving until under bridge
-                    velocity(0.0,0.0,0.0);
-                    stop = true;
-                }else{
-                    velocity(-1.0,0.0,0.0);
+           // telemetry.addData("i2c addr", String.format("@%X", cs.getI2cAddress().get8Bit()));
+
+            //I2cDeviceReader dr = new I2cDeviceReader(cs.getI2cAddress());
+            /*telemetry.addLine("<Sensor Dump>");
+            String str = "";
+            for (int i = 0; i<dump.length; i++){
+                if(i%4 == 0){
+                    str = str+"\t";
+                    if(i%8 == 0){
+                        str = str +String.format("\n0x%04X:\t", i);
+                    }
                 }
+                str = str + String.format(" %02X", dump[i]);
             }
-            telemetry.addData("found bridge?", stop);
-            telemetry.addLine("==========================");
-            telemetry.addData("red", cs.red());
-            telemetry.addData("blue", cs.blue());
-            telemetry.addData("green", cs.green());
-            telemetry.update();
+            telemetry.addLine(str);
+            updateTelemetry(telemetry);*/
         }
+        telemetry.addLine("goodbye!");
+        updateTelemetry(telemetry);
     }
 
     public double[] mechanumPower(double x, double y, double rot) {
@@ -139,31 +130,13 @@ public class MagnumAuto extends LinearOpMode {
         coeffs[2] = y + x + rot;
         coeffs[3] = y - x + rot;
 
-        /*double largest = Math.max(Math.max(Math.abs(coeffs[0]),Math.abs(coeffs[1])),Math.max(Math.abs(coeffs[2]),Math.abs(coeffs[3])));
+        double largest = Math.max(Math.max(Math.abs(coeffs[0]),Math.abs(coeffs[1])),Math.max(Math.abs(coeffs[2]),Math.abs(coeffs[3])));
         if(largest > 1.0d) {
             coeffs[0] = coeffs[0]/largest;
             coeffs[1] = coeffs[1]/largest;
             coeffs[2] = coeffs[2]/largest;
             coeffs[3] = coeffs[3]/largest;
-        }*/
-        return coeffs;
-    }
-
-    public void velocity(double forward, double strafe, double rot){
-        double[] coeffs = mechanumPower(strafe, forward, rot);
-        mech0.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[0], AngleUnit.DEGREES);
-        mech1.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[1], AngleUnit.DEGREES);
-        mech2.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[2], AngleUnit.DEGREES);
-        mech3.setVelocity(MAX_SPEED_MECH_WHEEL*coeffs[3], AngleUnit.DEGREES);
-
-    }
-
-    public void lineMove(double dist){
-        double startTime = time;
-        double dT = (dist/WHEEL_RADIUS) / MAX_SPEED_MECH_WHEEL;
-        double sign = Math.signum(dist);
-        while(opModeIsActive() && (startTime + dT) < time){
-            velocity(sign*1.0,0.0,0.0);
         }
+        return coeffs;
     }
 }

@@ -51,7 +51,7 @@ public class BentonDouble extends LinearOpMode {
         arm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         push = hardwareMap.crservo.get("push");
-        grip1a= hardwareMap.servo.get("grip1");
+        grip1a = hardwareMap.servo.get("grip1");
         grip1b = hardwareMap.servo.get("grip2");
         grip0 = hardwareMap.servo.get("grip0");
         waffle1 = hardwareMap.servo.get("waffle1");
