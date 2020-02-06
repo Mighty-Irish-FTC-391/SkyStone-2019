@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import android.graphics.Color;
 
+import com.qualcomm.hardware.lynx.LynxI2cColorRangeSensor;
 import com.qualcomm.hardware.rev.RevColorSensorV3;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -23,15 +24,24 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public class MagnumAuto extends LinearOpMode {
 
     //CONSTANTS
-    public final double DRIVER_RATIO = 0.3; //ratio of the main driver's control over the wheels to the crane driver's control
-    public final double MAX_SPEED_MECH_WHEEL = 1.0; //in degrees per second
-    public final double[][] PIDF_MECH = null; //PIDF constants for the mechanum wheels
-    public final double SLIDE_MAX_POW = 1.0; //slide servo speed, in ¯\_(ツ)_/¯
-    public final double ARM_POW = 0.5;//both arm motor speed, in degrees per second
+    public final double SATURATION_MIN = 50.0;//saturation of the target colors, from 0-100
+    public final double VALUE_MIN = 30.0;//brightness of the target colors, from 0-100
 
-    //button history trackers
-    boolean a1_last = false;
-    boolean a2_last = false;
+    //hues, from 0 to 360 degrees. Think of a color wheel, where red is 0/360
+    public final double HUE_BLUE_MAX = 270.0;
+    public final double HUE_BLUE_MIN = 180.0;
+
+    public final double HUE_RED_MAX = 30.0;
+    public final double HUE_RED_MIN = 330.0;
+
+    //applied power to drive
+    public final double MECH_POWER = 0.5;
+
+    //Servo stuff
+    public final double[] FLIPPERS_RANGE = {0.0, 0.5}; //flipper servo range (inverse applied for opposite flipper)
+    public final double FLIPPER_STAGE_ONE = 0.25;//flipper position for it to clear the foundation in stage 1.
+    //ignore
+    public final double[][] PIDF_MECH = null; //PIDF constants for the mechanum wheels
 
     //motors for mechanum drive go counterclockwise from the bottom right. Should be marked on robot.
     DcMotorEx mech0;
@@ -39,21 +49,12 @@ public class MagnumAuto extends LinearOpMode {
     DcMotorEx mech2;
     DcMotorEx mech3;
 
-    //Motors for the main arm
-    DcMotorEx spoolArm;
-    DcMotorEx rightArm;
-    DcMotorEx leftArm;
-
-    //Servos for the main arm & pincer
-    DcMotorEx slide;
-    Servo claw;
-
     //Servos for grabbing the base plate
     Servo waffleLeft;
     Servo waffleRight;
 
-    //ColorSensor cs;
-
+    //sensors
+    LynxI2cColorRangeSensor cs;
     @Override
     public void runOpMode(){
         //initialize motors for mechanum drive go counterclockwise from the bottom right. Use motors with encoders for DcMotorEx
@@ -79,46 +80,80 @@ public class MagnumAuto extends LinearOpMode {
             mech3.setVelocityPIDFCoefficients(PIDF_MECH[3][1],PIDF_MECH[3][1],PIDF_MECH[3][2],PIDF_MECH[3][3]);
         }
 
-        //Motors for the main arm. Use motors with encoders for DcMotorEx
-        spoolArm = (DcMotorEx) hardwareMap.dcMotor.get("spoolArm");
-        leftArm = (DcMotorEx) hardwareMap.dcMotor.get ("L_Arm");
-        rightArm = (DcMotorEx) hardwareMap.dcMotor.get("R_Arm");
-
-        spoolArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        leftArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        //Servos for the main arm & pincer
-        slide = (DcMotorEx) hardwareMap.dcMotor.get("slide");
-        claw = hardwareMap.servo.get("claw");
         //Servos for grabbing the base plate
         waffleLeft = hardwareMap.servo.get("L_waffle");
         waffleRight = hardwareMap.servo.get("R_waffle");
-
         //sensors
-       // cs = hardwareMap.colorSensor.get("colorSensor");
-        waitForStart();
+        cs = (LynxI2cColorRangeSensor) hardwareMap.colorSensor.get("colorSensor");
 
-        while(opModeIsActive()){
-           // telemetry.addData("i2c addr", String.format("@%X", cs.getI2cAddress().get8Bit()));
 
-            //I2cDeviceReader dr = new I2cDeviceReader(cs.getI2cAddress());
-            /*telemetry.addLine("<Sensor Dump>");
-            String str = "";
-            for (int i = 0; i<dump.length; i++){
-                if(i%4 == 0){
-                    str = str+"\t";
-                    if(i%8 == 0){
-                        str = str +String.format("\n0x%04X:\t", i);
-                    }
-                }
-                str = str + String.format(" %02X", dump[i]);
-            }
-            telemetry.addLine(str);
-            updateTelemetry(telemetry);*/
+        int phase = 0;
+        while (!isStarted()){
+            doTelemetry(new String[]{""+phase});
         }
-        telemetry.addLine("goodbye!");
-        updateTelemetry(telemetry);
+
+
+        //phase 1
+        int phase1Timer = 0;
+        waffleLeft.setPosition(1.0-FLIPPER_STAGE_ONE);
+        waffleRight.setPosition(FLIPPER_STAGE_ONE);
+        while(opModeIsActive() && phase==0){//approach foundation
+            phase1Timer++;
+            drive(0,-MECH_POWER,0);
+            double[] hsv = getHSV(cs.red()/cs.alpha(), cs.green()/cs.alpha(), cs.blue()/cs.alpha());
+            if((hsv[1] > SATURATION_MIN && hsv[2] > VALUE_MIN) && ( (hsv[0] > HUE_RED_MIN || hsv[0] < HUE_RED_MAX) || (hsv[0] > HUE_BLUE_MIN && hsv[0] < HUE_BLUE_MAX) )){ //color check.
+                phase++;
+                break;
+            }
+            doTelemetry(new String[]{""+phase});
+        }
+        //phase 2
+        if(opModeIsActive() && phase==1) {//grab foundation
+            sleep(500);
+            waffleLeft.setPosition(1.0-FLIPPERS_RANGE[0]);
+            waffleRight.setPosition(FLIPPERS_RANGE[0]);
+            sleep(500);
+        }
+        while(opModeIsActive() && phase==1){//retreat with foundation
+            phase1Timer--;
+            drive(0,MECH_POWER,0);
+            if(phase1Timer <= 0){
+                phase++;
+                break;
+            }
+            doTelemetry(new String[]{""+phase});
+        }
+        doTelemetry(new String[]{""+phase});
+        if(opModeIsActive() && phase==2){//release foundation
+            sleep(500);
+            waffleLeft.setPosition(1.0-FLIPPERS_RANGE[1]);
+            waffleRight.setPosition(FLIPPERS_RANGE[1]);
+            sleep(500);
+        }
+        while(opModeIsActive() && phase==2){//approach bridge
+            drive(MECH_POWER,0,0);
+            double[] hsv = getHSV(cs.red()/cs.alpha(), cs.green()/cs.alpha(), cs.blue()/cs.alpha());
+            if((hsv[1] > SATURATION_MIN && hsv[2] > VALUE_MIN) && ( (hsv[0] > HUE_RED_MIN || hsv[0] < HUE_RED_MAX) || (hsv[0] > HUE_BLUE_MIN && hsv[0] < HUE_BLUE_MAX) )){ //color check.
+                phase++;
+                break;
+            }
+            doTelemetry(new String[]{""+phase});
+        }
+        mech0.setPower(0);
+        mech1.setPower(0);
+        mech2.setPower(0);
+        mech3.setPower(0);
+        while(opModeIsActive() && phase == 3){//do nothing, update telemetry
+
+        }
+
+    }
+    public void drive(double x, double y, double rot){
+        double[] coeffs = mechanumPower(x,y,rot);
+        mech0.setPower(coeffs[0]);
+        mech1.setPower(coeffs[1]);
+        mech2.setPower(coeffs[2]);
+        mech3.setPower(coeffs[3]);
     }
 
     public double[] mechanumPower(double x, double y, double rot) {
@@ -138,5 +173,45 @@ public class MagnumAuto extends LinearOpMode {
             coeffs[3] = coeffs[3]/largest;
         }
         return coeffs;
+    }
+
+    public void doTelemetry(String[] args){
+        //PLEASE FIX. SOMEONE. ANYONE. I DONT CARE ANYMORE JUST PLEASE FIX THIS MESS
+        double r = cs.red();
+        double g = cs.green();
+        double b = cs.blue();
+        double a = cs.alpha();
+        double[] hsv = getHSV(r/a,g/a,b/a);
+        telemetry.addData("phase", args[0]);
+        telemetry.addData("Colour", String.format("r: %f, g: %f, b, %f a, %f", r, g, b, a));
+        telemetry.addData("% Colour",  String.format("r: %f, g: %f, b, %f", r/a, g/a, b/a));
+        telemetry.addData("HSV", String.format("H: %.2f, S: %.2f, V: %.2f, ",hsv[0],hsv[1],hsv[2]));
+        telemetry.addData("Mech Vel", String.format("0: %.2f, 1: %.2f, 2: %.2f, 3: %.2f", mech0.getVelocity(AngleUnit.DEGREES), mech1.getVelocity(AngleUnit.DEGREES), mech2.getVelocity(AngleUnit.DEGREES), mech3.getVelocity(AngleUnit.DEGREES)));
+        updateTelemetry(telemetry);
+    }
+
+    public double[] getHSV(double r,double g, double b) {
+        double hue = 0;
+        double sat = 0;
+        double cMax = Math.max(Math.max(r,g),b);
+        double cMin = Math.min(Math.min(r,g),b);
+        if(r == g && g == b) {
+            hue = 0.0; //grayscale, hue doesn't matter
+        }else if(r > g && r > b){ //red greatest
+            hue = (((g-b)/(r - cMin)) % 6.0 + 6.0) % 6.0;
+        }else if(g > b){//green greatest
+            hue = ((b-r)/(g - cMin)) + 2;
+        }else{ //blue greatest
+            hue = ((r-g)/(b - cMin)) + 4;
+        }
+        hue = 60*hue;
+
+        if(cMax != 0) {
+            sat = (cMax-cMin)/cMax;
+        } else{
+            sat = 0;
+        }
+
+        return new double[]{hue, sat*100, cMax*100};
     }
 }
